@@ -88,21 +88,29 @@ public sealed class BassDevice : IBassDevice
     /// <inheritdoc />
     public void Configure(Configuration config, int value)
     {
-        ManagedBass.Bass.Configure(config, value);
+        CheckReturn(config, ManagedBass.Bass.Configure(config, value));
     }
     
     /// <inheritdoc />
     public void Configure(Configuration config, nint value)
     {
-        ManagedBass.Bass.Configure(config, value);
+        CheckReturn(config, ManagedBass.Bass.Configure(config, value));
     }
 
     /// <inheritdoc />
     public void Configure(Configuration config, bool value)
     {
-        ManagedBass.Bass.Configure(config, value);
+        CheckReturn(config, ManagedBass.Bass.Configure(config, value));
     }
 
+    private void CheckReturn(Configuration config, bool success)
+    {
+        if (!success)
+        {
+            throw new InvalidOperationException($"Setting BASS configuration {config} failed: {ManagedBass.Bass.LastError}");
+        }
+    }
+    
     /// <inheritdoc />
     public void InitPlugins()
     {

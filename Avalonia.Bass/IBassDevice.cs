@@ -30,18 +30,21 @@ public interface IBassDevice : IDisposable
     /// </summary>
     /// <param name="config">The setting to configure.</param>
     /// <param name="value">The value to set.</param>
+    /// <exception cref="InvalidOperationException">Failed to configure BASS device.</exception>
     public void Configure(Configuration config, int value);
     /// <summary>
     /// Configures BASS device settings.
     /// </summary>
     /// <param name="config">The setting to configure.</param>
     /// <param name="value">The value to set.</param>
+    /// <exception cref="InvalidOperationException">Failed to configure BASS device.</exception>
     public void Configure(Configuration config, nint value);
     /// <summary>
     /// Configures BASS device settings.
     /// </summary>
     /// <param name="config">The setting to configure.</param>
     /// <param name="value">The value to set.</param>
+    /// <exception cref="InvalidOperationException">Failed to configure BASS device.</exception>
     public void Configure(Configuration config, bool value);
     /// <summary>
     /// Loads all BASS plugins.
