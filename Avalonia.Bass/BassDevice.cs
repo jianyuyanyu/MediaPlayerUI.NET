@@ -86,6 +86,24 @@ public sealed class BassDevice : IBassDevice
     }
 
     /// <inheritdoc />
+    public void Configure(Configuration config, int value)
+    {
+        ManagedBass.Bass.Configure(config, value);
+    }
+    
+    /// <inheritdoc />
+    public void Configure(Configuration config, nint value)
+    {
+        ManagedBass.Bass.Configure(config, value);
+    }
+
+    /// <inheritdoc />
+    public void Configure(Configuration config, bool value)
+    {
+        ManagedBass.Bass.Configure(config, value);
+    }
+
+    /// <inheritdoc />
     public void InitPlugins()
     {
         if (!IsPluginsInitialized)

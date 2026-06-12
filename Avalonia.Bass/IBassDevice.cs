@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using ManagedBass;
 
 namespace HanumanInstitute.MediaPlayer.Avalonia.Bass;
 
@@ -24,6 +25,24 @@ public interface IBassDevice : IDisposable
     /// <param name="outputSampleRate">The output sample rate (only on Linux).</param>
     /// <exception cref="InvalidOperationException">Failed to initialize BASS audio output.</exception>
     void Init(int deviceId = -1, int? outputSampleRate = null);
+    /// <summary>
+    /// Configures BASS device settings.
+    /// </summary>
+    /// <param name="config">The setting to configure.</param>
+    /// <param name="value">The value to set.</param>
+    public void Configure(Configuration config, int value);
+    /// <summary>
+    /// Configures BASS device settings.
+    /// </summary>
+    /// <param name="config">The setting to configure.</param>
+    /// <param name="value">The value to set.</param>
+    public void Configure(Configuration config, nint value);
+    /// <summary>
+    /// Configures BASS device settings.
+    /// </summary>
+    /// <param name="config">The setting to configure.</param>
+    /// <param name="value">The value to set.</param>
+    public void Configure(Configuration config, bool value);
     /// <summary>
     /// Loads all BASS plugins.
     /// </summary>

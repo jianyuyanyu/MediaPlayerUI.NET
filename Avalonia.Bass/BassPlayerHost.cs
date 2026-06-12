@@ -107,19 +107,16 @@ public class BassPlayerHost : PlayerHostBase, IDisposable
     // public string? DllPath { get; set; }
 
     /// <inheritdoc />
-    protected override void SourceChanged(string? value)
-    {
-        if (!IsInitialized) { return; }
-
-
-    }
+    protected override void SourceChanged(string? value) => SourceStreamChanged();
 
     /// <inheritdoc />
-    protected override void SourceStreamChanged(Stream? value)
+    protected override void SourceStreamChanged(Stream? value) => SourceStreamChanged();
+
+    private void SourceStreamChanged()
     {
         if (!IsInitialized) { return; }
 
-        if (value != null)
+        if (!string.IsNullOrEmpty(Source) || SourceStream != null)
         {
             Status = PlaybackStatus.Loading;
             LoadMedia();
@@ -559,65 +556,72 @@ public class BassPlayerHost : PlayerHostBase, IDisposable
     [SuppressMessage("ReSharper", "CompareOfFloatsByEqualityOperator")]
     private void LoadMedia()
     {
+        if (SourceStream == null && string.IsNullOrEmpty(Source)) { return; }
         BassDevice.Instance.Init(-1, OutputSampleRate);
         ReleaseChannel();
 
-        if (SourceStream != null)
+        _initLoaded = true;
+        // Store locally because properties can't be accessed from new thread.
+        var source = Source;
+        var sourceStream = SourceStream;
+        var volume = Volume;
+        var speed = GetSpeed();
+        var rate = Rate;
+        var pitch = Pitch;
+        var autoPlay = AutoPlay;
+        var deviceSampleRate = OutputSampleRate;
+        var useEffects = UseEffects || speed != 1.0 || rate != 1.0 || pitch != 1.0;
+        _ = Task.Run(() =>
         {
-            _initLoaded = true;
-            // Store locally because properties can't be accessed from new thread.
-            var stream = SourceStream;
-            var volume = Volume;
-            var speed = GetSpeed();
-            var rate = Rate;
-            var pitch = Pitch;
-            var autoPlay = AutoPlay;
-            var deviceSampleRate = OutputSampleRate;
-            var useEffects = UseEffects || speed != 1.0 || rate != 1.0 || pitch != 1.0;
-            _ = Task.Run(() =>
+            try
             {
-                try
+                ManagedBass.Bass.GetInfo(out _deviceInfo).Valid();
+                var flagFloat = EffectsFloat ? BassFlags.Float : 0;
+                // sourceStream = File.OpenRead(source!);
+                if (sourceStream != null)
                 {
-                    ManagedBass.Bass.GetInfo(out _deviceInfo).Valid();
-                    var flagFloat = EffectsFloat ? BassFlags.Float : 0;
-                    _chanIn = _chanOut = StreamWrapper.CreateFromStream(stream, useEffects ? flagFloat | BassFlags.Decode : 0).Valid();
-                    _chanInfo = ManagedBass.Bass.ChannelGetInfo(_chanIn);
-                    ManagedBass.Bass.ChannelSetSync(_chanIn, SyncFlags.End | SyncFlags.Mixtime, 0, Player_PlaybackStopped)
-                        .Valid();
-
-                    if (useEffects)
-                    {
-                        // Add mix plugin.
-                        _chanMix = BassMix.CreateMixerStream(deviceSampleRate ?? _deviceInfo.SampleRate, _chanInfo.Channels, 
-                            BassFlags.MixerEnd | BassFlags.Decode).Valid();
-                        BassMix.MixerAddChannel(_chanMix, _chanIn, 0 | BassFlags.MixerChanNoRampin | BassFlags.AutoFree);
-
-                        // Add tempo plugin.
-                        _chanOut = BassFx.TempoCreate(_chanMix, 0 | BassFlags.FxFreeSource).Valid();
-                        AdjustEffects();
-                        AdjustVolume(volume);
-                        AdjustTempo(speed, rate, pitch);
-                    }
-
-                    if (autoPlay)
-                    {
-                        ManagedBass.Bass.ChannelPlay(_chanOut).Valid();
-                        Dispatcher.UIThread.InvokeAsync(() => _posTimer?.Start());
-                    }
-
-                    Player_MediaLoaded();
+                    _chanIn = _chanOut = StreamWrapper.CreateFromStream(sourceStream, false, useEffects ? flagFloat | BassFlags.Decode : 0).Valid();
                 }
-                catch
+                else
                 {
-                    ReleaseChannel();
-                    Dispatcher.UIThread.InvokeAsync(() =>
-                    {
-                        Status = PlaybackStatus.Error;
-                        RaiseEvent(new RoutedEventArgs(MediaErrorEvent));
-                    });
+                    _chanIn = _chanOut = ManagedBass.Bass.CreateStream(Source, Flags: useEffects ? flagFloat | BassFlags.Decode : 0).Valid();
                 }
-            }).ConfigureAwait(false);
-        }
+                _chanInfo = ManagedBass.Bass.ChannelGetInfo(_chanIn);
+                ManagedBass.Bass.ChannelSetSync(_chanIn, SyncFlags.End | SyncFlags.Mixtime, 0, Player_PlaybackStopped)
+                    .Valid();
+
+                if (useEffects)
+                {
+                    // Add mix plugin.
+                    _chanMix = BassMix.CreateMixerStream(deviceSampleRate ?? _deviceInfo.SampleRate, _chanInfo.Channels, 
+                        BassFlags.MixerEnd | BassFlags.Decode).Valid();
+                    BassMix.MixerAddChannel(_chanMix, _chanIn, 0 | BassFlags.MixerChanNoRampin | BassFlags.AutoFree);
+
+                    // Add tempo plugin.
+                    _chanOut = BassFx.TempoCreate(_chanMix, 0 | BassFlags.FxFreeSource).Valid();
+                    AdjustEffects();
+                    AdjustVolume(volume);
+                    AdjustTempo(speed, rate, pitch);
+                }
+
+                if (autoPlay)
+                {
+                    ManagedBass.Bass.ChannelPlay(_chanOut).Valid();
+                    Dispatcher.UIThread.InvokeAsync(() => _posTimer?.Start());
+                }
+
+                Player_MediaLoaded();
+            }
+            catch
+            {
+                ReleaseChannel();
+                Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    Status = PlaybackStatus.Error;
+                    RaiseEvent(new RoutedEventArgs(MediaErrorEvent));
+                });
+            }
+        }).ConfigureAwait(false);
     }
 
     /// <summary>
